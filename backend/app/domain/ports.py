@@ -59,8 +59,11 @@ class GraphRepository(ABC):
         """Persist a document, its chunks (with embeddings) and extracted graph."""
 
     @abstractmethod
-    def vector_search(self, query_embedding: list[float], k: int) -> list[RetrievedChunk]:
-        """Return the top-k most similar chunks, enriched with their entities."""
+    def search_chunks(
+        self, query_text: str, query_embedding: list[float], k: int
+    ) -> list[RetrievedChunk]:
+        """Return the top-k most relevant chunks (hybrid vector + full-text),
+        enriched with their entities."""
 
     @abstractmethod
     def graph_facts_for_entities(self, entity_names: list[str], limit: int) -> list[GraphFact]:

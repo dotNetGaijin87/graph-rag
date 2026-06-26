@@ -41,8 +41,8 @@ class AnswerQuestionUseCase:
         # 1. Embed the query with the SAME model used at ingest time.
         query_embedding = self._embeddings.embed_query(question)
 
-        # 2. Vector search for the most relevant chunks.
-        chunks = self._graph.vector_search(query_embedding, self._settings.top_k)
+        # 2. Hybrid search (vector + full-text) for the most relevant chunks.
+        chunks = self._graph.search_chunks(question, query_embedding, self._settings.top_k)
 
         # 3. Graph expansion: pull relationships around the entities those chunks mention.
         entity_names = sorted({name for chunk in chunks for name in chunk.entities})

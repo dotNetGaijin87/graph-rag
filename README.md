@@ -66,8 +66,8 @@ index) *and* an **entity/relationship graph** — so retrieval is hybrid:
 ingest:  text → chunk → embed → :Chunk (+vector index)
                               └→ LLM extracts :Entity + [:RELATED_TO], links [:MENTIONS]
 
-query:   question → embed → top-K :Chunk → expand one hop for graph facts
-                         → LLM answers from that context only
+query:   question → embed + keywords → hybrid search top-K :Chunk → expand one hop
+                         → LLM answers from that (passages + graph facts) context only
 ```
 
 That one-hop graph expansion is the extra structured context plain vector RAG can't give
@@ -180,7 +180,7 @@ cd frontend && npm install && npm run dev
 Baseline GraphRAG + entity extraction is done. Next, in order of value:
 
 - [x] **Graph visualisation** in the UI (interactive Cytoscape view).
-- [ ] **Hybrid search** — union the vector and full-text indexes.
+- [x] **Hybrid search** — union the vector and full-text indexes.
 - [ ] **Text2Cypher** — route counting/aggregation questions to generated Cypher.
 - [ ] **Entity resolution** — merge duplicates ("ACME" / "ACME Ltd").
 - [ ] **Community summaries** (Microsoft-style GraphRAG) for broad corpus questions.

@@ -7,6 +7,7 @@ store (chunk embeddings live on :Chunk nodes, served by a native vector index).
 from __future__ import annotations
 
 import logging
+import re
 import time
 
 from neo4j import GraphDatabase
@@ -24,6 +25,58 @@ logger = logging.getLogger(__name__)
 
 CHUNK_VECTOR_INDEX = "chunk_embeddings"
 CHUNK_FULLTEXT_INDEX = "chunk_fulltext"
+
+# Lucene reserved characters — stripped from the user's question before it is handed
+# to the full-text index, so a stray "?" or ":" can't break the query parser.
+_LUCENE_SPECIAL = re.compile(r'[+\-&|!(){}\[\]^"~*?:\\/]')
+
+
+def lucene_query(text: str) -> str:
+    """Turn a free-text question into a safe Lucene OR-query of its terms."""
+    cleaned = _LUCENE_SPECIAL.sub(" ", text or "")
+    return " ".join(term for term in cleaned.split() if term)
+
+
+# Hybrid retrieval: union the vector index and the full-text index, normalise each
+# branch's scores by its own max, then keep the best-scoring chunks. Mirrors the
+# "hybrid search" approach (vector for semantics, keyword for exact/rare terms).
+_HYBRID_CYPHER = f"""
+CALL {{
+    CALL db.index.vector.queryNodes('{CHUNK_VECTOR_INDEX}', $k, $embedding) YIELD node, score
+    WITH collect({{node: node, score: score}}) AS hits, max(score) AS maxScore
+    UNWIND hits AS hit
+    RETURN hit.node AS node,
+           CASE WHEN maxScore > 0 THEN hit.score / maxScore ELSE 0.0 END AS score
+  UNION
+    CALL db.index.fulltext.queryNodes('{CHUNK_FULLTEXT_INDEX}', $keywords, {{limit: $k}})
+    YIELD node, score
+    WITH collect({{node: node, score: score}}) AS hits, max(score) AS maxScore
+    UNWIND hits AS hit
+    RETURN hit.node AS node,
+           CASE WHEN maxScore > 0 THEN hit.score / maxScore ELSE 0.0 END AS score
+}}
+WITH node, max(score) AS score
+ORDER BY score DESC
+LIMIT $k
+OPTIONAL MATCH (node)-[:MENTIONS]->(e:Entity)
+RETURN node.id AS chunk_id,
+       node.document_id AS document_id,
+       node.text AS text,
+       score AS score,
+       collect(DISTINCT e.name) AS entities
+ORDER BY score DESC
+"""
+
+_VECTOR_ONLY_CYPHER = f"""
+CALL db.index.vector.queryNodes('{CHUNK_VECTOR_INDEX}', $k, $embedding) YIELD node, score
+OPTIONAL MATCH (node)-[:MENTIONS]->(e:Entity)
+RETURN node.id AS chunk_id,
+       node.document_id AS document_id,
+       node.text AS text,
+       score AS score,
+       collect(DISTINCT e.name) AS entities
+ORDER BY score DESC
+"""
 
 
 class Neo4jGraphRepository(GraphRepository):
@@ -196,23 +249,19 @@ class Neo4jGraphRepository(GraphRepository):
     # Reads
     # ------------------------------------------------------------------ #
 
-    def vector_search(self, query_embedding: list[float], k: int) -> list[RetrievedChunk]:
+    def search_chunks(
+        self, query_text: str, query_embedding: list[float], k: int
+    ) -> list[RetrievedChunk]:
+        """Hybrid retrieval (vector + full-text). Falls back to vector-only if the
+        question has no usable keywords."""
+        keywords = lucene_query(query_text)
         with self._driver.session() as session:
-            records = session.run(
-                f"""
-                CALL db.index.vector.queryNodes('{CHUNK_VECTOR_INDEX}', $k, $embedding)
-                YIELD node, score
-                OPTIONAL MATCH (node)-[:MENTIONS]->(e:Entity)
-                RETURN node.id AS chunk_id,
-                       node.document_id AS document_id,
-                       node.text AS text,
-                       score AS score,
-                       collect(DISTINCT e.name) AS entities
-                ORDER BY score DESC
-                """,
-                k=k,
-                embedding=query_embedding,
-            )
+            if keywords:
+                records = session.run(
+                    _HYBRID_CYPHER, k=k, embedding=query_embedding, keywords=keywords
+                )
+            else:
+                records = session.run(_VECTOR_ONLY_CYPHER, k=k, embedding=query_embedding)
             return [
                 RetrievedChunk(
                     chunk_id=r["chunk_id"],

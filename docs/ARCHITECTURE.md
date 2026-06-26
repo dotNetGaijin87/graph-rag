@@ -6,20 +6,26 @@ backend (the *how*).
 
 ## 1. GraphRAG design
 
-GraphRAG can be built as an escalating ladder of sophistication:
+GraphRAG can be built as an escalating ladder of sophistication. The columns map each rung
+to where this repo stands:
 
-| Level | Technique | Status here |
-|-------|-----------|-------------|
-| 0 | Baseline vector RAG in Neo4j (`:Chunk` + vector index) | ✅ implemented |
-| 1 | Hybrid (vector + full-text) | 🟡 full-text index created, union pending |
-| — | **Entity-graph extraction** (`:Entity`, `[:RELATED_TO]`) | ✅ implemented |
-| 2 | Parent-document retrieval | ⬜ roadmap |
-| 3 | Text2Cypher for structured questions | ⬜ roadmap |
-| 4 | Community summaries (Microsoft-style GraphRAG) | ⬜ roadmap |
+| # | Architecture | Status here |
+|---|--------------|-------------|
+| 0 | **Baseline vector RAG** — `:Chunk` + vector index, top-k → prompt | ✅ implemented |
+| 1 | **Hybrid search** — union the vector and full-text indexes, normalise scores | ✅ implemented |
+| 2 | **Advanced retrieval** — parent-document retriever, step-back / HyDE query rewriting | ⬜ roadmap |
+| 3 | **Text2Cypher** — LLM generates Cypher for filtering/counting/aggregation | ⬜ roadmap |
+| 4 | **Agentic / router RAG** — retriever router + specialised templates + answer critic | ⬜ roadmap |
+| 5 | **LLM knowledge-graph construction** — typed `:Entity` + `[:RELATED_TO]`, entity resolution | 🟡 simplified |
+| 6 | **Microsoft-style GraphRAG** — community detection + summaries, global/local search | ⬜ roadmap |
 
-The PoC deliberately sits at **level 0/1 plus entity extraction** — the simplest design
-that uses the graph for more than vector storage. Everything heavier (communities,
-Text2Cypher, agentic routing) is additive and does not require re-architecting.
+Where this repo sits: **levels 0 and 1 in full**, plus a **simplified level 5** — it does
+LLM-extract a real entity/relationship graph and link chunks via `[:MENTIONS]`, but without
+entity resolution, without embedding entities, and with substring-based mention linking. On
+top of that it adds a **hand-rolled graph expansion** at query time (vector hit → one-hop
+`[:RELATED_TO]` facts) that echoes level-6 *local search* without its machinery (no entity
+vector index, communities, or ranking). It deliberately skips levels 2–4 and the heavy parts
+of 5–6 — all additive, none requiring a re-architecture.
 
 ### The single most important rule
 
@@ -46,7 +52,10 @@ Extraction is best-effort: if it fails the system degrades gracefully to plain v
 ### Retrieval (`AnswerQuestionUseCase`)
 
 1. **Embed** the question (same model).
-2. **Vector search** the top-`k` chunks via `db.index.vector.queryNodes`.
+2. **Hybrid search** the top-`k` chunks: union `db.index.vector.queryNodes` with
+   `db.index.fulltext.queryNodes`, normalise each branch's scores by its own max, and merge.
+   The question is sanitised of Lucene reserved characters first; if it has no usable
+   keywords, retrieval falls back to vector-only.
 3. **Graph expansion**: collect the entities those chunks mention, then fetch their
    one-hop `[:RELATED_TO]` relationships as "graph facts".
 4. **Assemble** a context of passages + facts and ask the LLM to answer using *only* that
