@@ -11,6 +11,7 @@ import logging
 
 from ..domain.models import Answer, RetrievalContext
 from ..domain.ports import EmbeddingProvider, GraphRepository, LLMProvider
+from ..settings import RuntimeSettings
 from .prompts import ANSWER_SYSTEM, answer_prompt
 
 logger = logging.getLogger(__name__)
@@ -22,14 +23,14 @@ class AnswerQuestionUseCase:
         embeddings: EmbeddingProvider,
         llm: LLMProvider,
         graph: GraphRepository,
+        settings: RuntimeSettings,
         *,
-        top_k: int,
         max_facts: int = 25,
     ) -> None:
         self._embeddings = embeddings
         self._llm = llm
         self._graph = graph
-        self._top_k = top_k
+        self._settings = settings
         self._max_facts = max_facts
 
     def execute(self, question: str) -> Answer:
@@ -41,7 +42,7 @@ class AnswerQuestionUseCase:
         query_embedding = self._embeddings.embed_query(question)
 
         # 2. Vector search for the most relevant chunks.
-        chunks = self._graph.vector_search(query_embedding, self._top_k)
+        chunks = self._graph.vector_search(query_embedding, self._settings.top_k)
 
         # 3. Graph expansion: pull relationships around the entities those chunks mention.
         entity_names = sorted({name for chunk in chunks for name in chunk.entities})

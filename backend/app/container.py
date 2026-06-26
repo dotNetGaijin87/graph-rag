@@ -12,6 +12,7 @@ from .config import Config
 from .infrastructure.neo4j.repository import Neo4jGraphRepository
 from .infrastructure.ollama.embeddings import OllamaEmbeddingProvider
 from .infrastructure.ollama.llm import OllamaLLMProvider
+from .settings import RuntimeSettings
 
 
 class Container:
@@ -37,20 +38,20 @@ class Container:
             embedding_dim=config.embedding_dim,
         )
 
+        # Runtime-adjustable tuning parameters (editable via /api/settings).
+        self.settings = RuntimeSettings(config)
+
         self.ingest_text = IngestTextUseCase(
             embeddings=self.embeddings,
             llm=self.llm,
             graph=self.graph,
-            chunk_size=config.chunk_size,
-            chunk_overlap=config.chunk_overlap,
-            enable_extraction=config.enable_entity_extraction,
-            max_extraction_chars=config.max_extraction_chars,
+            settings=self.settings,
         )
         self.answer_question = AnswerQuestionUseCase(
             embeddings=self.embeddings,
             llm=self.llm,
             graph=self.graph,
-            top_k=config.top_k,
+            settings=self.settings,
         )
 
     def close(self) -> None:

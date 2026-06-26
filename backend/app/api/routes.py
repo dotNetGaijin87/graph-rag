@@ -31,6 +31,13 @@ def stats():
     return jsonify(_container().graph.stats())
 
 
+@api.get("/graph")
+def graph():
+    limit = request.args.get("limit", default=200, type=int)
+    limit = max(1, min(limit, 1000))
+    return jsonify(_container().graph.graph_overview(limit))
+
+
 @api.post("/documents")
 def ingest_document():
     payload = request.get_json(silent=True) or {}
@@ -54,6 +61,18 @@ def query():
 
     answer = _container().answer_question.execute(question=question)
     return jsonify(serialize_answer(answer))
+
+
+@api.get("/settings")
+def get_settings():
+    return jsonify(_container().settings.to_dict())
+
+
+@api.put("/settings")
+def update_settings():
+    payload = request.get_json(silent=True) or {}
+    updated = _container().settings.update(payload)  # raises ValueError -> 400
+    return jsonify(updated)
 
 
 @api.post("/reset")

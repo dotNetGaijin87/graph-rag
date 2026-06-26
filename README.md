@@ -71,7 +71,7 @@ Indexes: a **vector index** on `Chunk.embedding` (cosine) and a **full-text inde
 
 | Layer       | Choice                                            |
 |-------------|---------------------------------------------------|
-| Frontend    | React 18 + TypeScript + Vite                      |
+| Frontend    | React 18 + TypeScript + Vite + Material UI (MUI)  |
 | Backend     | Python + Flask, **clean architecture / modular monolith** |
 | Graph DB    | Neo4j 5 (graph + native vector index)             |
 | LLM & embed | Ollama (`llama3.2`, `nomic-embed-text`) — open source, local |
@@ -104,11 +104,24 @@ The first startup waits for `ollama-init` to pull the models before the backend 
 Watch the logs — once you see `RAG backend ready.` you're good to go.
 
 ### Using it
+The UI has two tabs:
+
+**Knowledge base** tab:
 1. Paste any text (an article, notes, documentation) into the **left** panel and click
    *Add to knowledge base*.
 2. Ask a question in the **right** panel. The answer comes back with expandable
    **sources** — the retrieved passages and the knowledge-graph facts used.
-3. Inspect the graph yourself in the Neo4j Browser, e.g.:
+
+**Knowledge graph** tab:
+3. An interactive Cytoscape view of the extracted entities (coloured by type) and their
+   relationships. Drag nodes, scroll to zoom, and hit *Refresh* after adding text.
+
+**Settings** tab:
+4. Tune the RAG pipeline live — chunk size/overlap, top‑K, max extraction characters, and
+   the entity-extraction toggle. Changes apply immediately (chunking affects newly added
+   text) and persist in memory until the backend restarts.
+
+You can also inspect the graph directly in the Neo4j Browser, e.g.:
    ```cypher
    MATCH (c:Chunk)-[:MENTIONS]->(e:Entity) RETURN c, e LIMIT 50;
    MATCH p=(:Entity)-[:RELATED_TO]->(:Entity) RETURN p LIMIT 50;
@@ -116,8 +129,9 @@ Watch the logs — once you see `RAG backend ready.` you're good to go.
 
 ## Configuration
 
-All settings have sensible defaults and can be overridden via a `.env` file (copy
-[.env.example](.env.example)). Key options:
+These env vars set the **startup defaults**; the chunking/retrieval ones can then be
+adjusted at runtime from the **Settings** tab (or `PUT /api/settings`). All have sensible
+defaults and can be overridden via a `.env` file (copy [.env.example](.env.example)):
 
 | Variable                   | Default            | Meaning                                  |
 |----------------------------|--------------------|------------------------------------------|
@@ -174,6 +188,9 @@ Subsequent calls are faster. A GPU helps a lot (see prerequisites).
 |--------|------------------|----------------------------|-----------------------------------|
 | GET    | `/api/health`    | —                          | Liveness check                    |
 | GET    | `/api/stats`     | —                          | Counts of docs/chunks/entities    |
+| GET    | `/api/graph`     | `?limit=N`                 | Entities + relationships for the graph view |
+| GET    | `/api/settings`  | —                          | Current RAG tuning parameters     |
+| PUT    | `/api/settings`  | `{ "chunk_size", ... }`    | Update tuning parameters at runtime |
 | POST   | `/api/documents` | `{ "text", "title?" }`     | Ingest text into the graph        |
 | POST   | `/api/query`     | `{ "question" }`           | Ask a question, get a grounded answer |
 | POST   | `/api/reset`     | —                          | Wipe all stored knowledge         |
@@ -194,7 +211,7 @@ Subsequent calls are faster. A GPU helps a lot (see prerequisites).
 └── frontend/                   # React + TypeScript (Vite)
     └── src/
         ├── api/                # typed API client
-        └── components/         # IngestPanel, QueryPanel, AnswerView, StatsBar
+        └── components/         # IngestPanel, QueryPanel, AnswerView, StatsBar, GraphView, SettingsPanel
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the clean-architecture rationale and
@@ -230,7 +247,8 @@ of value:
 - [ ] **Parent-document retrieval** — embed small chunks, return their parent for context.
 - [ ] **Community summaries** (Microsoft GraphRAG) — Louvain clustering + per-community
       summaries for broad "what is this corpus about" questions.
-- [ ] **Graph visualisation** in the UI; streaming answers; document management.
+- [x] **Graph visualisation** in the UI (interactive Cytoscape view of entities/relations).
+- [ ] Streaming answers; document management; click-a-node-to-filter.
 
 ## License
 

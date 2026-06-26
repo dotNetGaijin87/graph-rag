@@ -67,6 +67,10 @@ class GraphRepository(ABC):
         """Return relationships connected to the given entities (one-hop expansion)."""
 
     @abstractmethod
+    def graph_overview(self, limit: int) -> dict:
+        """Return entities and relationships for visualisation: {nodes, edges}."""
+
+    @abstractmethod
     def stats(self) -> dict:
         """Return counts of documents/chunks/entities/relationships."""
 

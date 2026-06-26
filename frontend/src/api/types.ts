@@ -39,3 +39,39 @@ export interface Stats {
   entities: number;
   relationships: number;
 }
+
+export interface GraphNode {
+  id: string;
+  type: string;
+  description: string;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  description: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface Settings {
+  // editable
+  chunk_size: number;
+  chunk_overlap: number;
+  top_k: number;
+  enable_entity_extraction: boolean;
+  max_extraction_chars: number;
+  // read-only (informational)
+  llm_model: string;
+  embedding_model: string;
+  embedding_dim: number;
+}
+
+export type EditableSettings = Pick<
+  Settings,
+  'chunk_size' | 'chunk_overlap' | 'top_k' | 'enable_entity_extraction' | 'max_extraction_chars'
+>;

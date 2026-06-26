@@ -11,6 +11,7 @@ import uuid
 
 from ..domain.models import Chunk, ExtractionResult, IngestionReport
 from ..domain.ports import EmbeddingProvider, GraphRepository, LLMProvider
+from ..settings import RuntimeSettings
 from .chunking import chunk_text
 
 logger = logging.getLogger(__name__)
@@ -22,19 +23,12 @@ class IngestTextUseCase:
         embeddings: EmbeddingProvider,
         llm: LLMProvider,
         graph: GraphRepository,
-        *,
-        chunk_size: int,
-        chunk_overlap: int,
-        enable_extraction: bool,
-        max_extraction_chars: int,
+        settings: RuntimeSettings,
     ) -> None:
         self._embeddings = embeddings
         self._llm = llm
         self._graph = graph
-        self._chunk_size = chunk_size
-        self._chunk_overlap = chunk_overlap
-        self._enable_extraction = enable_extraction
-        self._max_extraction_chars = max_extraction_chars
+        self._settings = settings
 
     def execute(self, text: str, title: str | None = None) -> IngestionReport:
         text = (text or "").strip()
@@ -45,7 +39,7 @@ class IngestTextUseCase:
         title = (title or "").strip() or f"Document {document_id[:8]}"
 
         # 1. Chunk
-        raw_chunks = chunk_text(text, self._chunk_size, self._chunk_overlap)
+        raw_chunks = chunk_text(text, self._settings.chunk_size, self._settings.chunk_overlap)
         logger.info("Ingest %s: %d chunks", document_id, len(raw_chunks))
 
         # 2. Embed (batch)
@@ -84,10 +78,10 @@ class IngestTextUseCase:
         return report
 
     def _extract(self, text: str) -> ExtractionResult:
-        if not self._enable_extraction:
+        if not self._settings.enable_entity_extraction:
             return ExtractionResult()
         try:
-            snippet = text[: self._max_extraction_chars]
+            snippet = text[: self._settings.max_extraction_chars]
             return self._llm.extract_graph(snippet)
         except Exception:  # extraction must never break ingestion
             logger.exception("Entity extraction failed; falling back to vector-only RAG")

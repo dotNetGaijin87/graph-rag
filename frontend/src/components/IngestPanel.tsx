@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Alert, Box, Button, CircularProgress, Paper, TextField, Typography } from '@mui/material';
 import { api, ApiError } from '../api/client';
 import type { IngestionReport } from '../api/types';
 
@@ -36,39 +37,54 @@ export function IngestPanel({ onIngested }: Props) {
   }
 
   return (
-    <section className="panel">
-      <h2>1 · Add knowledge</h2>
-      <p className="panel-hint">
+    <Paper variant="outlined" sx={{ p: 3, height: '100%' }}>
+      <Typography variant="h6" gutterBottom>
+        1 · Add knowledge
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Paste any text. It is chunked, embedded, and an entity/relationship graph is
         extracted and stored in Neo4j.
-      </p>
-      <form onSubmit={handleSubmit} className="stack">
-        <input
-          type="text"
-          placeholder="Title (optional)"
+      </Typography>
+
+      <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField
+          label="Title (optional)"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={loading}
+          size="small"
+          fullWidth
         />
-        <textarea
-          placeholder="Paste text to remember…"
+        <TextField
+          label="Paste text to remember…"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={10}
           disabled={loading}
+          multiline
+          minRows={8}
+          fullWidth
         />
-        <button type="submit" disabled={!canSubmit}>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={!canSubmit}
+          startIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
+        >
           {loading ? 'Ingesting…' : 'Add to knowledge base'}
-        </button>
-      </form>
+        </Button>
+      </Box>
 
-      {error && <p className="message error">{error}</p>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
       {report && (
-        <p className="message success">
+        <Alert severity="success" sx={{ mt: 2 }}>
           Stored “{report.title}” — {report.chunk_count} chunks, {report.entity_count}{' '}
           entities, {report.relationship_count} relationships.
-        </p>
+        </Alert>
       )}
-    </section>
+    </Paper>
   );
 }

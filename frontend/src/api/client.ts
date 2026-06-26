@@ -1,4 +1,11 @@
-import type { AnswerResponse, IngestionReport, Stats } from './types';
+import type {
+  AnswerResponse,
+  EditableSettings,
+  GraphData,
+  IngestionReport,
+  Settings,
+  Stats,
+} from './types';
 
 const BASE_URL = '/api';
 
@@ -46,6 +53,13 @@ export const api = {
     }),
 
   stats: (): Promise<Stats> => request<Stats>('/stats'),
+
+  graph: (limit = 200): Promise<GraphData> => request<GraphData>(`/graph?limit=${limit}`),
+
+  getSettings: (): Promise<Settings> => request<Settings>('/settings'),
+
+  updateSettings: (patch: EditableSettings): Promise<Settings> =>
+    request<Settings>('/settings', { method: 'PUT', body: JSON.stringify(patch) }),
 
   reset: (): Promise<{ status: string }> => request('/reset', { method: 'POST' }),
 };

@@ -250,6 +250,59 @@ class Neo4jGraphRepository(GraphRepository):
                 for r in records
             ]
 
+    def graph_overview(self, limit: int) -> dict:
+        """Return a subgraph of entities + relationships for the UI to visualise."""
+        nodes: dict[str, dict] = {}
+        edges: list[dict] = []
+        with self._driver.session() as session:
+            # Relationships (and the entities they connect).
+            for r in session.run(
+                """
+                MATCH (a:Entity)-[rel:RELATED_TO]->(b:Entity)
+                RETURN a.name AS source, a.type AS source_type, a.description AS source_desc,
+                       b.name AS target, b.type AS target_type, b.description AS target_desc,
+                       rel.type AS type, rel.description AS description
+                LIMIT $limit
+                """,
+                limit=limit,
+            ):
+                nodes.setdefault(
+                    r["source"],
+                    {"id": r["source"], "type": r["source_type"] or "Concept",
+                     "description": r["source_desc"] or ""},
+                )
+                nodes.setdefault(
+                    r["target"],
+                    {"id": r["target"], "type": r["target_type"] or "Concept",
+                     "description": r["target_desc"] or ""},
+                )
+                edges.append(
+                    {
+                        "source": r["source"],
+                        "target": r["target"],
+                        "type": r["type"] or "RELATED_TO",
+                        "description": r["description"] or "",
+                    }
+                )
+
+            # Standalone entities that have no relationships yet.
+            for r in session.run(
+                """
+                MATCH (e:Entity)
+                WHERE NOT (e)-[:RELATED_TO]-()
+                RETURN e.name AS id, e.type AS type, e.description AS description
+                LIMIT $limit
+                """,
+                limit=limit,
+            ):
+                nodes.setdefault(
+                    r["id"],
+                    {"id": r["id"], "type": r["type"] or "Concept",
+                     "description": r["description"] or ""},
+                )
+
+        return {"nodes": list(nodes.values()), "edges": edges}
+
     def stats(self) -> dict:
         with self._driver.session() as session:
             record = session.run(

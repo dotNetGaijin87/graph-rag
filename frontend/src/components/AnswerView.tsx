@@ -1,4 +1,14 @@
-import { useState } from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Chip,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import type { AnswerResponse } from '../api/types';
 
 interface Props {
@@ -6,60 +16,76 @@ interface Props {
 }
 
 export function AnswerView({ result }: Props) {
-  const [showSources, setShowSources] = useState(false);
   const { answer, context } = result;
 
   return (
-    <div className="answer">
-      <h3>Answer</h3>
-      <p className="answer-text">{answer}</p>
+    <Box>
+      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        Answer
+      </Typography>
+      <Typography sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>{answer}</Typography>
 
-      <button className="link-button" onClick={() => setShowSources((s) => !s)}>
-        {showSources ? 'Hide' : 'Show'} sources ({context.chunks.length} passages,{' '}
-        {context.facts.length} graph facts)
-      </button>
-
-      {showSources && (
-        <div className="sources">
+      <Accordion variant="outlined" disableGutters sx={{ '&::before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="body2" color="text.secondary">
+            Sources — {context.chunks.length} passages, {context.facts.length} graph facts
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
           {context.facts.length > 0 && (
-            <div className="sources-block">
-              <h4>Knowledge-graph facts</h4>
-              <ul className="facts">
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="overline" color="text.secondary">
+                Knowledge-graph facts
+              </Typography>
+              <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                 {context.facts.map((fact, i) => (
-                  <li key={i}>
-                    <span className="entity">{fact.source}</span>
-                    <span className="rel"> {fact.type.replace(/_/g, ' ').toLowerCase()} </span>
-                    <span className="entity">{fact.target}</span>
-                  </li>
+                  <Typography key={i} variant="body2">
+                    <strong>{fact.source}</strong>{' '}
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                      {fact.type.replace(/_/g, ' ').toLowerCase()}
+                    </Box>{' '}
+                    <strong>{fact.target}</strong>
+                  </Typography>
                 ))}
-              </ul>
-            </div>
+              </Stack>
+            </Box>
           )}
 
           {context.chunks.length > 0 && (
-            <div className="sources-block">
-              <h4>Retrieved passages</h4>
-              {context.chunks.map((chunk) => (
-                <div key={chunk.chunk_id} className="chunk">
-                  <div className="chunk-meta">
-                    score {chunk.score.toFixed(3)}
-                    {chunk.entities.length > 0 && (
-                      <span className="chunk-entities">
-                        {chunk.entities.map((e) => (
-                          <span key={e} className="chip">
-                            {e}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                  <p className="chunk-text">{chunk.text}</p>
-                </div>
-              ))}
-            </div>
+            <Box>
+              <Typography variant="overline" color="text.secondary">
+                Retrieved passages
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 0.5 }}>
+                {context.chunks.map((chunk) => (
+                  <Paper
+                    key={chunk.chunk_id}
+                    variant="outlined"
+                    sx={{ p: 1.5, bgcolor: 'background.default' }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ flexWrap: 'wrap', mb: 0.5 }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        score {chunk.score.toFixed(3)}
+                      </Typography>
+                      {chunk.entities.map((entity) => (
+                        <Chip key={entity} label={entity} size="small" />
+                      ))}
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {chunk.text}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            </Box>
           )}
-        </div>
-      )}
-    </div>
+        </AccordionDetails>
+      </Accordion>
+    </Box>
   );
 }
