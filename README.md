@@ -79,9 +79,10 @@ in [docker-compose.yml](docker-compose.yml)).
 
 ## Architecture
 
-Four services, wired by Docker Compose. The Flask backend follows **clean architecture**
-(dependencies point inward to the domain). **Neo4j** is both the vector store and the
-knowledge graph; **Ollama** serves the local chat and embedding models.
+Five services, wired by Docker Compose (a one-shot `ollama-init` pulls the models, then
+exits). The Flask backend follows **clean architecture** (dependencies point inward to the
+domain). **Neo4j** is both the vector store and the knowledge graph; **Ollama** serves the
+local chat and embedding models.
 
 <p align="center"><img src="docs/img/architecture.png" alt="System architecture" width="880"></p>
 
