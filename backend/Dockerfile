@@ -25,5 +25,7 @@ COPY . .
 
 EXPOSE 8000
 
-# 2 workers, long timeout because local LLM/embedding calls can be slow on CPU.
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "600", "wsgi:app"]
+# Single worker: runtime settings (the Settings tab) live in process memory, so multiple
+# workers would each hold their own copy and updates would be inconsistent. Long timeout
+# because local LLM/embedding calls can be slow on CPU.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--timeout", "600", "wsgi:app"]

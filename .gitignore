@@ -33,17 +33,9 @@ ollama/
 .DS_Store
 Thumbs.db
 
-# Books (large PDFs — keep out of git)
-books/
 
 # Local CA bundle for corporate proxy (never commit private certs)
 certs/*.crt
 certs/*.pem
 
-# Azure Storage emulator (Azurite) artifacts — not part of this project
-AzuriteConfig
-__azurite_db_*.json
-__blobstorage__/
-__queuestorage__/
-__azurite_db_*__.json
 

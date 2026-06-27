@@ -21,23 +21,27 @@ Nothing ever leaves your machine.
 ## The app — four tabs
 
 ### ＋ Add knowledge
+
 Paste any text — it's chunked, embedded, and an entity/relationship graph is extracted into Neo4j.
 
 ![Add knowledge tab](docs/img/add-knowledge.png)
 
-### 💬 Ask
+### Ask
+
 Your question is embedded, matched against stored chunks (hybrid vector + keyword), expanded
 over the graph, and answered by the local LLM — with expandable **sources** (passages + graph facts).
 
 ![Ask tab](docs/img/ask.png)
 
-### ⬡ Knowledge graph
+### Knowledge graph
+
 Interactive [Cytoscape](https://js.cytoscape.org/) view of the extracted entities (coloured
 by type) and their relationships. Drag nodes, scroll to zoom, refresh after ingesting.
 
 ![Knowledge graph tab](docs/img/knowledge-graph.png)
 
-### ⚙ Settings
+### Settings
+
 Live-tune the RAG pipeline — chunk size / overlap, top‑K, max extraction characters, and the
 entity-extraction toggle. Changes apply immediately.
 
@@ -49,11 +53,11 @@ entity-extraction toggle. Changes apply immediately.
 docker compose up --build
 ```
 
-| Service       | URL                                                       |
-|---------------|-----------------------------------------------------------|
-| **Web UI**    | http://localhost:3000                                     |
-| Neo4j Browser | http://localhost:7474 (`neo4j` / `password123`)           |
-| Backend API   | http://localhost:8000/api/health                          |
+| Service       | URL                                             |
+| ------------- | ----------------------------------------------- |
+| **Web UI**    | http://localhost:3000                           |
+| Neo4j Browser | http://localhost:7474 (`neo4j` / `password123`) |
+| Backend API   | http://localhost:8000/api/health                |
 
 First run downloads ~2.5 GB of Ollama models — wait for `RAG backend ready.` in the logs,
 then open the UI. CPU works; a GPU is much faster (uncomment the `deploy` block for
@@ -65,7 +69,7 @@ then open the UI. CPU works; a GPU is much faster (uncomment the `deploy` block 
 ## How it works
 
 The graph database does double duty. Neo4j stores **chunk embeddings** (a native vector
-index) *and* an **entity/relationship graph** — so retrieval is hybrid:
+index) _and_ an **entity/relationship graph** — so retrieval is hybrid:
 
 ```
 ingest:  text → chunk → embed → :Chunk (+vector index)
@@ -82,7 +86,7 @@ you. Full pipeline, Neo4j schema, and the clean-architecture rationale:
 ## Tech stack
 
 | Layer         | Choice                                                       |
-|---------------|--------------------------------------------------------------|
+| ------------- | ------------------------------------------------------------ |
 | Frontend      | React 18 · TypeScript · Vite · Material UI                   |
 | Backend       | Python · Flask — clean architecture / modular monolith       |
 | Graph DB      | Neo4j 5 (graph + native vector index)                        |
@@ -95,13 +99,13 @@ you. Full pipeline, Neo4j schema, and the clean-architecture rationale:
 Env vars set the **startup defaults** (copy [.env.example](.env.example) to `.env`); the
 chunking/retrieval ones are then editable at runtime from the **Settings** tab.
 
-| Variable                       | Default            | Meaning                              |
-|--------------------------------|--------------------|--------------------------------------|
-| `LLM_MODEL`                    | `llama3.2`         | Ollama chat model                    |
-| `EMBEDDING_MODEL`              | `nomic-embed-text` | Ollama embedding model               |
-| `EMBEDDING_DIM`                | `768`              | Must match the embedding model       |
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100`      | Chunking window (characters)         |
-| `TOP_K`                        | `5`                | Chunks retrieved per question        |
+| Variable                       | Default            | Meaning                               |
+| ------------------------------ | ------------------ | ------------------------------------- |
+| `LLM_MODEL`                    | `llama3.2`         | Ollama chat model                     |
+| `EMBEDDING_MODEL`              | `nomic-embed-text` | Ollama embedding model                |
+| `EMBEDDING_DIM`                | `768`              | Must match the embedding model        |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100`      | Chunking window (characters)          |
+| `TOP_K`                        | `5`                | Chunks retrieved per question         |
 | `ENABLE_ENTITY_EXTRACTION`     | `true`             | Off = plain vector RAG, faster ingest |
 
 > Changing `EMBEDDING_MODEL` changes the vector dimension — update `EMBEDDING_DIM` to match
@@ -117,7 +121,7 @@ root CA, but the containers don't. Two phases, fixed separately:
 
 1. **Image build** (pip/npm `CERTIFICATE_VERIFY_FAILED`) → set `INSECURE_TLS=1` in `.env`.
 2. **Ollama model pull** (`x509: certificate signed by unknown authority`) → Ollama must
-   *trust* the CA. Export your roots into [certs/](certs/):
+   _trust_ the CA. Export your roots into [certs/](certs/):
    ```powershell
    powershell -ExecutionPolicy Bypass -File certs\export-windows-cas.ps1
    ```
@@ -135,16 +139,16 @@ faster (a GPU helps a lot).
 <details>
 <summary><b>API reference</b></summary>
 
-| Method | Path             | Body / Query            | Description                       |
-|--------|------------------|-------------------------|-----------------------------------|
-| GET    | `/api/health`    | —                       | Liveness check                    |
-| GET    | `/api/stats`     | —                       | Counts of docs/chunks/entities    |
+| Method | Path             | Body / Query            | Description                           |
+| ------ | ---------------- | ----------------------- | ------------------------------------- |
+| GET    | `/api/health`    | —                       | Liveness check                        |
+| GET    | `/api/stats`     | —                       | Counts of docs/chunks/entities        |
 | GET    | `/api/graph`     | `?limit=N`              | Entities + relationships (graph view) |
-| GET    | `/api/settings`  | —                       | Current RAG tuning parameters     |
-| PUT    | `/api/settings`  | `{ "chunk_size", ... }` | Update tuning parameters at runtime |
-| POST   | `/api/documents` | `{ "text", "title?" }`  | Ingest text into the graph        |
+| GET    | `/api/settings`  | —                       | Current RAG tuning parameters         |
+| PUT    | `/api/settings`  | `{ "chunk_size", ... }` | Update tuning parameters at runtime   |
+| POST   | `/api/documents` | `{ "text", "title?" }`  | Ingest text into the graph            |
 | POST   | `/api/query`     | `{ "question" }`        | Ask a question, get a grounded answer |
-| POST   | `/api/reset`     | —                       | Wipe all stored knowledge         |
+| POST   | `/api/reset`     | —                       | Wipe all stored knowledge             |
 
 </details>
 
