@@ -36,3 +36,18 @@ def test_invalid_json_returns_empty_result():
     result = OllamaLLMProvider._parse_extraction("not json at all")
     assert result.entities == []
     assert result.relationships == []
+
+
+def test_entities_without_a_name_are_skipped():
+    content = """
+    {
+      "entities": [
+        {"name": "", "type": "Person"},
+        {"type": "Concept"},
+        {"name": "Radium"}
+      ],
+      "relationships": []
+    }
+    """
+    result = OllamaLLMProvider._parse_extraction(content)
+    assert [e.name for e in result.entities] == ["Radium"]

@@ -51,3 +51,26 @@ def test_partial_update_leaves_others_unchanged():
     s.update({"chunk_size": 1234})
     assert s.chunk_size == 1234
     assert s.top_k == original_top_k
+
+
+def test_rejects_non_integer_value():
+    with pytest.raises(ValueError):
+        _settings().update({"chunk_size": "not a number"})
+
+
+def test_rejects_bool_for_integer_field():
+    with pytest.raises(ValueError):
+        _settings().update({"chunk_size": True})
+
+
+def test_rejects_non_dict_body():
+    with pytest.raises(ValueError):
+        _settings().update("not a dict")
+
+
+def test_updates_extraction_flag_and_max_chars():
+    s = _settings()
+    out = s.update({"enable_entity_extraction": False, "max_extraction_chars": 5000})
+    assert s.enable_entity_extraction is False
+    assert s.max_extraction_chars == 5000
+    assert out["max_extraction_chars"] == 5000

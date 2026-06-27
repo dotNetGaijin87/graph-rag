@@ -1,6 +1,6 @@
 """Unit tests for the chunker — pure logic, no infrastructure required."""
 
-from app.application.chunking import chunk_text
+from app.application.chunking import _overlap_tail, chunk_text
 
 
 def test_empty_text_returns_no_chunks():
@@ -32,3 +32,10 @@ def test_overlap_must_be_smaller_than_chunk_size():
 
     with pytest.raises(ValueError):
         chunk_text("a b c", 10, 10)
+
+
+def test_overlap_tail_keeps_all_words_when_they_fit_the_budget():
+    tail, length = _overlap_tail(["a", "b", "c"], overlap=100)
+
+    assert tail == ["a", "b", "c"]
+    assert length == len("a b c")

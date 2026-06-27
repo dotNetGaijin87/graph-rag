@@ -1,0 +1,12 @@
+[run]
+source = app
+branch = True
+
+[report]
+show_missing = True
+precision = 1
+fail_under = 90
+exclude_also =
+    if __name__ == .__main__.:
+    raise NotImplementedError
+    \.\.\.
