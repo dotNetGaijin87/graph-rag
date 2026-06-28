@@ -21,6 +21,10 @@ class Config:
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
     embedding_dim: int = int(os.getenv("EMBEDDING_DIM", "768"))
     ollama_timeout: int = int(os.getenv("OLLAMA_TIMEOUT", "300"))
+    # Ollama's default context window is small and silently truncates long prompts.
+    num_ctx: int = int(os.getenv("NUM_CTX", "4096"))
+    # Near-greedy decoding keeps grounded answers factual (extraction always uses 0).
+    answer_temperature: float = float(os.getenv("ANSWER_TEMPERATURE", "0.2"))
 
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "800"))
     chunk_overlap: int = int(os.getenv("CHUNK_OVERLAP", "100"))

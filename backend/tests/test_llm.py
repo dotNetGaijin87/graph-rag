@@ -34,7 +34,7 @@ def test_generate_returns_empty_string_when_content_is_missing():
         assert _provider().generate("system", "prompt") == ""
 
 
-def test_generate_payload_omits_format_and_options():
+def test_generate_payload_sets_decoding_options_and_omits_format():
     with patch(
         "app.infrastructure.ollama.llm.requests.post",
         return_value=_response({"message": {"content": "ok"}}),
@@ -46,7 +46,7 @@ def test_generate_payload_omits_format_and_options():
     assert payload["stream"] is False
     assert payload["messages"][0]["role"] == "system"
     assert "format" not in payload
-    assert "options" not in payload
+    assert payload["options"] == {"temperature": 0.2, "num_ctx": 4096}
 
 
 def test_extract_graph_requests_structured_output_and_parses_it():
@@ -64,7 +64,7 @@ def test_extract_graph_requests_structured_output_and_parses_it():
 
     payload = post.call_args.kwargs["json"]
     assert "format" in payload
-    assert payload["options"] == {"temperature": 0}
+    assert payload["options"] == {"temperature": 0, "num_ctx": 4096}
 
     assert {e.name for e in result.entities} == {"Marie Curie", "Radium"}
     assert result.relationships[0].type == "DISCOVERED"

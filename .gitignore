@@ -23,13 +23,14 @@ dist-ssr/
 # Env / secrets
 .env
 *.env
-!.env.example
+!.env.template
 
-# Docker / data volumes
-data/
-neo4j/data/
-neo4j/logs/
-ollama/
+# Docker / data volumes (root-level only — must not match nested source packages
+# such as backend/app/infrastructure/ollama/)
+/data/
+/neo4j/data/
+/neo4j/logs/
+/ollama/
 
 # Editor / OS
 .vscode/

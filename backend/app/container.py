@@ -24,6 +24,8 @@ class Container:
             base_url=config.ollama_base_url,
             model=config.llm_model,
             timeout=config.ollama_timeout,
+            num_ctx=config.num_ctx,
+            answer_temperature=config.answer_temperature,
         )
         self.graph = Neo4jGraphRepository(
             uri=config.neo4j_uri,

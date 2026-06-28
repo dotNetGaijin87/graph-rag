@@ -130,7 +130,7 @@ vector RAG would miss.
 <details>
 <summary><b>Configuration</b></summary>
 
-Env vars set the **startup defaults** (copy [.env.example](.env.example) to `.env`); the
+Env vars set the **startup defaults** (copy [.env.template](.env.template) to `.env`); the
 chunking/retrieval ones are then editable at runtime from the **Settings** tab.
 
 | Variable                       | Default            | Meaning                               |

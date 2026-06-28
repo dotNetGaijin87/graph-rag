@@ -29,7 +29,16 @@ Rules:
 - Prefer 5-20 of the most important entities; do not invent facts.
 - If nothing meaningful can be extracted, return empty lists.
 
+Example
 Text:
+\"\"\"
+Ada Lovelace wrote the first algorithm for the Analytical Engine, a mechanical
+computer designed by Charles Babbage.
+\"\"\"
+JSON:
+{{"entities": [{{"name": "Ada Lovelace", "type": "Person", "description": "Wrote the first algorithm"}}, {{"name": "Analytical Engine", "type": "Product", "description": "Mechanical computer"}}, {{"name": "Charles Babbage", "type": "Person", "description": "Designed the Analytical Engine"}}], "relationships": [{{"source": "Ada Lovelace", "target": "Analytical Engine", "type": "WROTE_ALGORITHM_FOR", "description": ""}}, {{"source": "Charles Babbage", "target": "Analytical Engine", "type": "DESIGNED", "description": ""}}]}}
+
+Now extract from this text:
 \"\"\"
 {text}
 \"\"\"
@@ -62,6 +71,9 @@ this information as context, passages, or sources, and do not number or cite it.
 
 # Question
 {question}
+
+Answer using only the information above. If it does not contain the answer, reply exactly:
+"I don't have enough information to answer that."
 
 # Answer
 """
