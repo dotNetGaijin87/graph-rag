@@ -91,3 +91,25 @@ def answer_prompt(question: str, context: RetrievalContext) -> str:
         passages = "(none)"
 
     return ANSWER_PROMPT_TEMPLATE.format(facts=facts, passages=passages, question=question)
+
+
+SUMMARIZE_SYSTEM = (
+    "You merge several descriptions of the same entity or relationship into one "
+    "comprehensive description. Include the information from every description, resolve "
+    "any contradictions, remove redundancy, write in the third person, and name the "
+    "subject so the result stands on its own. Respond with the description only."
+)
+
+SUMMARIZE_PROMPT_TEMPLATE = """\
+Subject: {subject}
+
+Descriptions:
+{descriptions}
+
+Merged description:
+"""
+
+
+def summarize_prompt(subject: str, descriptions: list[str]) -> str:
+    listed = "\n".join(f"- {description}" for description in descriptions)
+    return SUMMARIZE_PROMPT_TEMPLATE.format(subject=subject, descriptions=listed)

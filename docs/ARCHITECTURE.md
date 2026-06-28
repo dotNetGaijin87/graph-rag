@@ -19,13 +19,14 @@ rung to where this repo stands:
 | 5   | **LLM knowledge-graph construction** — typed `:Entity` + `[:RELATED_TO]`, entity resolution | 🟡 simplified   |
 | 6   | **Microsoft-style GraphRAG** — entity-anchored local search ✅; community detection + summaries / global search ⬜ | 🟡 simplified   |
 
-Where this repo sits: **levels 0 and 1 in full**, plus a **simplified level 5** — it does
-LLM-extract a real entity/relationship graph and link chunks via `[:MENTIONS]`, but without
-entity resolution, without embedding entities, and with substring-based mention linking. On
-top of that it adds a **hand-rolled graph expansion** at query time (vector hit → one-hop
-`[:RELATED_TO]` facts) that echoes level-6 _local search_ without its machinery (no entity
-vector index, communities, or ranking). It deliberately skips levels 2–4 and the heavy parts
-of 5–6 — all additive, none requiring a re-architecture.
+Where this repo sits: **levels 0 and 1 in full**, a **simplified level 5** — it LLM-extracts a
+real entity/relationship graph from every chunk, deduplicates entities case-insensitively, and
+LLM-merges the descriptions a name collects into one summary (mention linking is still
+substring-based; full entity resolution is not done) — and **part of level 6**: entity-anchored
+_local search_ (entities are embedded into their own vector index and matched directly to the
+query), plus one-hop `[:RELATED_TO]` graph expansion. It deliberately skips levels 2–4 and the
+heavy parts of 5–6 (full entity resolution, community detection / global search) — all additive,
+none requiring a re-architecture.
 
 ### The single most important rule
 
@@ -40,12 +41,14 @@ the database — vectors from different models are not comparable.
 1. **Chunk** the text with a sliding window over word boundaries (`chunk_size=800`,
    `overlap=100`). Words are never split.
 2. **Embed** all chunks in one batched Ollama call.
-3. **Extract** a knowledge graph with one LLM call using Ollama's JSON-schema-constrained
-   output (`format`), yielding entities and relationships. Relationships whose endpoints
+3. **Extract** a knowledge graph from **each chunk** using Ollama's JSON-schema-constrained
+   output (`format`). Entities are deduplicated case-insensitively across chunks; when a name
+   gathers several descriptions, they are LLM-merged into one. Relationships whose endpoints
    are not real extracted entities are dropped.
-4. **Persist** atomically in Neo4j: `:Document`, `:Chunk` (with embeddings), `:Entity`,
-   `[:RELATED_TO]`, and `[:MENTIONS]` links (a chunk mentions an entity when the entity's
-   name appears in the chunk text).
+4. **Embed entities** (name + description) so the query can match them directly (local search).
+5. **Persist** atomically in Neo4j: `:Document`, `:Chunk` (with embeddings), `:Entity` (with
+   embeddings), `[:RELATED_TO]`, and `[:MENTIONS]` links (a chunk mentions an entity when the
+   entity's name appears in the chunk text).
 
 Extraction is best-effort: if it fails the system degrades gracefully to plain vector RAG.
 

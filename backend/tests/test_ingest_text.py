@@ -14,12 +14,18 @@ from tests.conftest import FakeEmbeddingProvider, FakeGraphRepository, FakeLLMPr
 class _SeqLLM(LLMProvider):
     """Returns a queued ExtractionResult per call (repeats the last)."""
 
-    def __init__(self, results):
+    def __init__(self, results, summary="MERGED", generate_error=None):
         self._results = list(results)
+        self._summary = summary
+        self._generate_error = generate_error
         self.calls = 0
+        self.generate_calls = []
 
     def generate(self, system, prompt):
-        return ""
+        self.generate_calls.append((system, prompt))
+        if self._generate_error is not None:
+            raise self._generate_error
+        return self._summary
 
     def extract_graph(self, text):
         result = self._results[min(self.calls, len(self._results) - 1)]
@@ -97,6 +103,65 @@ def test_extraction_failure_does_not_break_ingestion():
     assert report.chunk_count >= 1
     assert report.entity_count == 0
     assert len(graph.saved_documents) == 1
+
+
+def test_multiple_descriptions_are_merged_by_the_llm():
+    first = ExtractionResult(entities=[Entity("Marie Curie", description="A physicist")])
+    second = ExtractionResult(entities=[Entity("Marie Curie", description="Discovered radium")])
+    llm = _SeqLLM([first, second], summary="Marie Curie, a physicist, discovered radium.")
+
+    result = _use_case(llm)._extract(["chunk a", "chunk b"])
+
+    assert result.entities[0].description == "Marie Curie, a physicist, discovered radium."
+    assert len(llm.generate_calls) == 1
+
+
+def test_relationship_descriptions_are_merged_across_chunks():
+    entities = [Entity("Marie Curie"), Entity("Radium")]
+    first = ExtractionResult(
+        entities=entities,
+        relationships=[Relationship("Marie Curie", "Radium", "DISCOVERED", "found it")],
+    )
+    second = ExtractionResult(
+        entities=entities,
+        relationships=[Relationship("Marie Curie", "Radium", "DISCOVERED", "isolated it in 1898")],
+    )
+    llm = _SeqLLM([first, second], summary="Marie Curie discovered and isolated radium in 1898.")
+
+    result = _use_case(llm)._extract(["chunk a", "chunk b"])
+
+    assert len(result.relationships) == 1
+    assert result.relationships[0].description == "Marie Curie discovered and isolated radium in 1898."
+
+
+def test_single_description_is_not_summarized():
+    extraction = ExtractionResult(entities=[Entity("Marie Curie", description="A physicist")])
+    llm = _SeqLLM([extraction])
+
+    result = _use_case(llm)._extract(["only chunk"])
+
+    assert result.entities[0].description == "A physicist"
+    assert llm.generate_calls == []
+
+
+def test_summarization_failure_keeps_the_first_description():
+    first = ExtractionResult(entities=[Entity("X", description="d1")])
+    second = ExtractionResult(entities=[Entity("X", description="d2")])
+    llm = _SeqLLM([first, second], generate_error=RuntimeError("boom"))
+
+    result = _use_case(llm)._extract(["a", "b"])
+
+    assert result.entities[0].description == "d1"
+
+
+def test_empty_summary_falls_back_to_first_description():
+    first = ExtractionResult(entities=[Entity("X", description="d1")])
+    second = ExtractionResult(entities=[Entity("X", description="d2")])
+    llm = _SeqLLM([first, second], summary="   ")
+
+    result = _use_case(llm)._extract(["a", "b"])
+
+    assert result.entities[0].description == "d1"
 
 
 def test_ingest_embeds_entities_for_local_search():

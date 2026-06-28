@@ -107,7 +107,7 @@ plain vector RAG would miss.
 
 ### Creating knowledge
 
-`text → chunk → embed (Ollama) → extract entities & relationships (Ollama) → store in Neo4j`
+`text → chunk → embed (Ollama) → extract + summarize graph per chunk (Ollama) → embed entities → store in Neo4j`
 
 <p align="center"><img src="docs/img/flow-ingest.png" alt="Knowledge-creation sequence" width="880"></p>
 

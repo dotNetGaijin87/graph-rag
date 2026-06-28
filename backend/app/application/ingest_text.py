@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 import uuid
+from dataclasses import replace
 
 from ..domain.models import Chunk, Entity, ExtractionResult, IngestionReport, Relationship
 from ..domain.ports import EmbeddingProvider, GraphRepository, LLMProvider
 from ..settings import RuntimeSettings
 from .chunking import chunk_text
+from .prompts import SUMMARIZE_SYSTEM, summarize_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,12 @@ def _normalize_ws(name: str) -> str:
 
 def _entity_key(name: str) -> str:
     return _normalize_ws(name).casefold()
+
+
+def _add_description(accumulated: list[str], description: str) -> None:
+    description = (description or "").strip()
+    if description and description not in accumulated:
+        accumulated.append(description)
 
 
 class IngestTextUseCase:
@@ -83,16 +91,18 @@ class IngestTextUseCase:
 
         Extracting per chunk (rather than from a single document prefix) means the
         whole document contributes to the graph, not just its opening. Entities are
-        deduplicated case-insensitively, keeping the first display name and filling
-        in a description when a later mention supplies one. A single chunk failing
-        never aborts the rest, nor breaks ingestion.
+        deduplicated case-insensitively; the descriptions their mentions provide are
+        accumulated and, when there is more than one, merged into a single coherent
+        summary by the LLM. A chunk failing never aborts the rest, nor breaks ingestion.
         """
         if not self._settings.enable_entity_extraction:
             return ExtractionResult()
 
         limit = self._settings.max_extraction_chars
         entities: dict[str, Entity] = {}
+        entity_descriptions: dict[str, list[str]] = {}
         relationships: dict[tuple[str, str, str], Relationship] = {}
+        rel_descriptions: dict[tuple[str, str, str], list[str]] = {}
 
         for i, chunk in enumerate(chunks):
             try:
@@ -105,38 +115,53 @@ class IngestTextUseCase:
                 key = _entity_key(entity.name)
                 if not key:
                     continue
-                existing = entities.get(key)
-                if existing is None:
-                    entities[key] = Entity(
-                        name=_normalize_ws(entity.name),
-                        type=entity.type,
-                        description=entity.description,
-                    )
-                elif not existing.description and entity.description:
-                    entities[key] = Entity(
-                        name=existing.name,
-                        type=existing.type,
-                        description=entity.description,
-                    )
+                if key not in entities:
+                    entities[key] = Entity(name=_normalize_ws(entity.name), type=entity.type)
+                    entity_descriptions[key] = []
+                _add_description(entity_descriptions[key], entity.description)
 
             for rel in result.relationships:
                 source_key, target_key = _entity_key(rel.source), _entity_key(rel.target)
                 if source_key not in entities or target_key not in entities:
                     continue
-                relationships.setdefault(
-                    (source_key, rel.type, target_key),
-                    Relationship(
+                rel_key = (source_key, rel.type, target_key)
+                if rel_key not in relationships:
+                    relationships[rel_key] = Relationship(
                         source=entities[source_key].name,
                         target=entities[target_key].name,
                         type=rel.type,
-                        description=rel.description,
-                    ),
-                )
+                    )
+                    rel_descriptions[rel_key] = []
+                _add_description(rel_descriptions[rel_key], rel.description)
 
         return ExtractionResult(
-            entities=list(entities.values()),
-            relationships=list(relationships.values()),
+            entities=[
+                replace(entity, description=self._summarize(entity.name, entity_descriptions[key]))
+                for key, entity in entities.items()
+            ],
+            relationships=[
+                replace(
+                    rel,
+                    description=self._summarize(f"{rel.source} and {rel.target}", rel_descriptions[key]),
+                )
+                for key, rel in relationships.items()
+            ],
         )
+
+    def _summarize(self, subject: str, descriptions: list[str]) -> str:
+        """Merge multiple descriptions of one entity/relationship into a single summary."""
+        if not descriptions:
+            return ""
+        if len(descriptions) == 1:
+            return descriptions[0]
+        try:
+            summary = self._llm.generate(
+                SUMMARIZE_SYSTEM, summarize_prompt(subject, descriptions)
+            ).strip()
+        except Exception:  # summarization is best-effort; never break ingestion
+            logger.exception("Description summarization failed; keeping the first description")
+            return descriptions[0]
+        return summary or descriptions[0]
 
     def _embed_entities(self, entities: list[Entity]) -> dict[str, list[float]]:
         if not entities:
