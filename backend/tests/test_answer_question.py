@@ -61,6 +61,40 @@ def test_chunks_without_entities_skip_the_graph_fact_lookup():
     assert graph.facts_calls == []
 
 
+def test_query_matched_entities_broaden_the_fact_lookup():
+    # Default chunk mentions "Marie Curie"; entity vector search adds "Pierre Curie".
+    graph = FakeGraphRepository(seed_entities=["Pierre Curie"])
+    use_case = AnswerQuestionUseCase(
+        embeddings=FakeEmbeddingProvider(),
+        llm=FakeLLMProvider(),
+        graph=graph,
+        settings=RuntimeSettings(Config()),
+    )
+
+    use_case.execute(question="Who did Curie work with?")
+
+    assert graph.facts_calls[-1]["names"] == ["Marie Curie", "Pierre Curie"]
+    assert graph.entity_search_calls[-1]["k"] == 5
+
+
+def test_graph_can_answer_when_chunk_search_returns_nothing():
+    graph = FakeGraphRepository(chunks=[], seed_entities=["Marie Curie"])
+    llm = FakeLLMProvider()
+    use_case = AnswerQuestionUseCase(
+        embeddings=FakeEmbeddingProvider(),
+        llm=llm,
+        graph=graph,
+        settings=RuntimeSettings(Config()),
+    )
+
+    answer = use_case.execute(question="What did Curie discover?")
+
+    assert answer.context.chunks == []
+    assert len(answer.context.facts) == 1
+    assert answer.answer == "Marie Curie discovered radium."
+    assert llm.generate_calls
+
+
 def test_retrieval_uses_top_k_from_settings(graph):
     settings = RuntimeSettings(Config())
     settings.top_k = 9

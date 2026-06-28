@@ -34,12 +34,16 @@ class GraphRepository(ABC):
         title: str,
         chunks: list[Chunk],
         extraction: ExtractionResult,
+        entity_embeddings: dict[str, list[float]] | None = None,
     ) -> None: ...
 
     @abstractmethod
     def search_chunks(
         self, query_text: str, query_embedding: list[float], k: int
     ) -> list[RetrievedChunk]: ...
+
+    @abstractmethod
+    def search_entities(self, query_embedding: list[float], k: int) -> list[str]: ...
 
     @abstractmethod
     def graph_facts_for_entities(self, entity_names: list[str], limit: int) -> list[GraphFact]: ...

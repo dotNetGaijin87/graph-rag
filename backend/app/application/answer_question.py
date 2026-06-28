@@ -38,7 +38,12 @@ class AnswerQuestionUseCase:
 
         chunks = self._graph.search_chunks(question, query_embedding, self._settings.top_k)
 
-        entity_names = sorted({name for chunk in chunks for name in chunk.entities})
+        # "Local search": match entities directly to the query so the graph surfaces
+        # relevant facts even when chunk retrieval misses the text.
+        seed_entities = self._graph.search_entities(query_embedding, self._settings.top_k)
+        entity_names = sorted(
+            {name for chunk in chunks for name in chunk.entities} | set(seed_entities)
+        )
         facts = (
             self._graph.graph_facts_for_entities(entity_names, self._max_facts)
             if entity_names

@@ -99,6 +99,21 @@ def test_extraction_failure_does_not_break_ingestion():
     assert len(graph.saved_documents) == 1
 
 
+def test_ingest_embeds_entities_for_local_search():
+    llm = _SeqLLM([ExtractionResult(entities=[Entity("Marie Curie"), Entity("Radium")])])
+    graph = FakeGraphRepository()
+    use_case = IngestTextUseCase(
+        embeddings=FakeEmbeddingProvider(),
+        llm=llm,
+        graph=graph,
+        settings=RuntimeSettings(Config()),
+    )
+
+    use_case.execute(text="Marie Curie discovered radium.")
+
+    assert set(graph.saved_documents[-1]["entity_embeddings"]) == {"Marie Curie", "Radium"}
+
+
 def test_extraction_merges_case_and_whitespace_variants_across_chunks():
     first = ExtractionResult(entities=[Entity("NASA", description="")])
     second = ExtractionResult(

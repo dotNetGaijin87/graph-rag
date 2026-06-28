@@ -41,6 +41,7 @@ def test_ensure_schema_creates_constraints_and_indexes(repo, driver, session):
     assert "VECTOR INDEX" in statements
     assert "768" in statements
     assert "FULLTEXT INDEX" in statements
+    assert repo_module.ENTITY_VECTOR_INDEX in statements
 
 
 def test_ensure_schema_retries_then_succeeds(repo, driver, session, monkeypatch):
@@ -92,6 +93,17 @@ def test_save_document_writes_only_chunks_when_nothing_was_extracted(repo, sessi
     assert tx.run.call_count == 1
 
 
+def test_save_document_carries_entity_embeddings(repo, session):
+    tx = _run_write(session)
+    chunks = [Chunk(id="doc-0", document_id="doc", index=0, text="t", embedding=[0.1])]
+    extraction = ExtractionResult(entities=[Entity("Marie Curie")])
+
+    repo.save_document("doc", "Curie", chunks, extraction, {"Marie Curie": [0.5, 0.6]})
+
+    entity_write = next(c for c in tx.run.call_args_list if "entities" in c.kwargs)
+    assert entity_write.kwargs["entities"][0]["embedding"] == [0.5, 0.6]
+
+
 # --- retrieval ------------------------------------------------------------
 
 
@@ -124,6 +136,15 @@ def test_search_chunks_falls_back_to_vector_only_without_keywords(repo, session)
 
     assert session.run.call_args.args[0] == repo_module._VECTOR_ONLY_CYPHER
     assert results[0].entities == ["Radium"]
+
+
+def test_search_entities_returns_matched_names(repo, session):
+    session.run.return_value = [{"name": "Marie Curie"}, {"name": ""}]
+
+    results = repo.search_entities([0.1, 0.2], k=5)
+
+    assert session.run.call_args.args[0] == repo_module._ENTITY_SEARCH_CYPHER
+    assert results == ["Marie Curie"]
 
 
 def test_graph_facts_for_empty_names_returns_empty_without_querying(repo, session):

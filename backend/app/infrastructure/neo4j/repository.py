@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 CHUNK_VECTOR_INDEX = "chunk_embeddings"
 CHUNK_FULLTEXT_INDEX = "chunk_fulltext"
+ENTITY_VECTOR_INDEX = "entity_embeddings"
 
 # Lucene reserved characters — stripped from the user's question before it is handed
 # to the full-text index, so a stray "?" or ":" can't break the query parser.
@@ -71,6 +72,12 @@ RETURN node.id AS chunk_id,
 ORDER BY score DESC
 """
 
+_ENTITY_SEARCH_CYPHER = f"""
+CALL db.index.vector.queryNodes('{ENTITY_VECTOR_INDEX}', $k, $embedding) YIELD node, score
+RETURN node.name AS name
+ORDER BY score DESC
+"""
+
 
 class Neo4jGraphRepository(GraphRepository):
     def __init__(self, uri: str, user: str, password: str, embedding_dim: int) -> None:
@@ -116,6 +123,13 @@ class Neo4jGraphRepository(GraphRepository):
                 f"CREATE FULLTEXT INDEX {CHUNK_FULLTEXT_INDEX} IF NOT EXISTS "
                 "FOR (c:Chunk) ON EACH [c.text]"
             )
+            session.run(
+                f"CREATE VECTOR INDEX {ENTITY_VECTOR_INDEX} IF NOT EXISTS "
+                "FOR (e:Entity) ON (e.embedding) "
+                "OPTIONS {indexConfig: {"
+                f"`vector.dimensions`: {int(self._embedding_dim)}, "
+                "`vector.similarity_function`: 'cosine'}}"
+            )
         logger.info("Neo4j schema ensured.")
 
     def save_document(
@@ -124,7 +138,9 @@ class Neo4jGraphRepository(GraphRepository):
         title: str,
         chunks: list[Chunk],
         extraction: ExtractionResult,
+        entity_embeddings: dict[str, list[float]] | None = None,
     ) -> None:
+        entity_embeddings = entity_embeddings or {}
         chunk_rows = [
             {
                 "id": c.id,
@@ -135,7 +151,12 @@ class Neo4jGraphRepository(GraphRepository):
             for c in chunks
         ]
         entity_rows = [
-            {"name": e.name, "type": e.type, "description": e.description}
+            {
+                "name": e.name,
+                "type": e.type,
+                "description": e.description,
+                "embedding": entity_embeddings.get(e.name),
+            }
             for e in extraction.entities
         ]
         relationship_rows = [
@@ -196,7 +217,10 @@ class Neo4jGraphRepository(GraphRepository):
                 SET e.type = entity.type,
                     e.description = CASE
                         WHEN entity.description <> '' THEN entity.description
-                        ELSE e.description END
+                        ELSE e.description END,
+                    e.embedding = CASE
+                        WHEN entity.embedding IS NULL THEN e.embedding
+                        ELSE entity.embedding END
                 """,
                 entities=entity_rows,
             )
@@ -251,6 +275,11 @@ class Neo4jGraphRepository(GraphRepository):
                 )
                 for r in records
             ]
+
+    def search_entities(self, query_embedding: list[float], k: int) -> list[str]:
+        with self._driver.session() as session:
+            records = session.run(_ENTITY_SEARCH_CYPHER, k=k, embedding=query_embedding)
+            return [r["name"] for r in records if r["name"]]
 
     def graph_facts_for_entities(self, entity_names: list[str], limit: int) -> list[GraphFact]:
         if not entity_names:

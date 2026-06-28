@@ -58,8 +58,9 @@ class IngestTextUseCase:
         ]
 
         extraction = self._extract(raw_chunks)
+        entity_embeddings = self._embed_entities(extraction.entities)
 
-        self._graph.save_document(document_id, title, chunks, extraction)
+        self._graph.save_document(document_id, title, chunks, extraction, entity_embeddings)
 
         report = IngestionReport(
             document_id=document_id,
@@ -136,3 +137,10 @@ class IngestTextUseCase:
             entities=list(entities.values()),
             relationships=list(relationships.values()),
         )
+
+    def _embed_entities(self, entities: list[Entity]) -> dict[str, list[float]]:
+        if not entities:
+            return {}
+        texts = [f"{e.name}: {e.description}" if e.description else e.name for e in entities]
+        vectors = self._embeddings.embed_documents(texts)
+        return {entity.name: vector for entity, vector in zip(entities, vectors)}

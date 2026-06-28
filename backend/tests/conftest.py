@@ -67,7 +67,9 @@ class FakeGraphRepository(GraphRepository):
         *,
         chunks: list[RetrievedChunk] | None = None,
         facts: list[GraphFact] | None = None,
+        seed_entities: list[str] | None = None,
     ) -> None:
+        self._seed_entities = seed_entities or []
         self._chunks = chunks if chunks is not None else [
             RetrievedChunk(
                 chunk_id="doc-0",
@@ -82,6 +84,7 @@ class FakeGraphRepository(GraphRepository):
         ]
         self.saved_documents: list[dict] = []
         self.search_calls: list[dict] = []
+        self.entity_search_calls: list[dict] = []
         self.facts_calls: list[dict] = []
         self.overview_limits: list[int] = []
         self.reset_count = 0
@@ -90,19 +93,24 @@ class FakeGraphRepository(GraphRepository):
     def ensure_schema(self) -> None:
         self.ensure_schema_count += 1
 
-    def save_document(self, document_id, title, chunks, extraction) -> None:
+    def save_document(self, document_id, title, chunks, extraction, entity_embeddings=None) -> None:
         self.saved_documents.append(
             {
                 "document_id": document_id,
                 "title": title,
                 "chunks": chunks,
                 "extraction": extraction,
+                "entity_embeddings": entity_embeddings or {},
             }
         )
 
     def search_chunks(self, query_text, query_embedding, k) -> list[RetrievedChunk]:
         self.search_calls.append({"query": query_text, "embedding": query_embedding, "k": k})
         return list(self._chunks)
+
+    def search_entities(self, query_embedding, k) -> list[str]:
+        self.entity_search_calls.append({"embedding": query_embedding, "k": k})
+        return list(self._seed_entities)
 
     def graph_facts_for_entities(self, entity_names, limit) -> list[GraphFact]:
         self.facts_calls.append({"names": entity_names, "limit": limit})

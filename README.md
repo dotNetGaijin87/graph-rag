@@ -32,8 +32,9 @@ Paste any text — it's chunked, embedded, and an entity/relationship graph is e
 
 ### Ask
 
-Your question is embedded, matched against stored chunks (hybrid vector + keyword), expanded
-over the graph, and answered by the local LLM — with expandable **sources** (passages + graph facts).
+Your question is embedded, matched against stored chunks (hybrid vector + keyword) **and against
+entities directly** (entity-anchored "local search"), expanded over the graph, and answered by the
+local LLM — with expandable **sources** (passages + graph facts).
 
 ![Ask tab](docs/img/ask.png)
 
@@ -100,8 +101,9 @@ ladder: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 Neo4j does double duty: it stores **chunk embeddings** (a native vector index) _and_ an
 **entity/relationship graph**. Retrieval is therefore **hybrid** — semantic vector search
-finds relevant passages, then a one‑hop graph traversal pulls in connected facts that plain
-vector RAG would miss.
+finds relevant passages, the query is also matched against **entity embeddings** to find
+relevant entities directly, and a one‑hop graph traversal then pulls in connected facts that
+plain vector RAG would miss.
 
 ### Creating knowledge
 

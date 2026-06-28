@@ -17,7 +17,7 @@ rung to where this repo stands:
 | 3   | **Text2Cypher** — LLM generates Cypher for filtering/counting/aggregation                   | ⬜ roadmap      |
 | 4   | **Agentic / router RAG** — retriever router + specialised templates + answer critic         | ⬜ roadmap      |
 | 5   | **LLM knowledge-graph construction** — typed `:Entity` + `[:RELATED_TO]`, entity resolution | 🟡 simplified   |
-| 6   | **Microsoft-style GraphRAG** — community detection + summaries, global/local search         | ⬜ roadmap      |
+| 6   | **Microsoft-style GraphRAG** — entity-anchored local search ✅; community detection + summaries / global search ⬜ | 🟡 simplified   |
 
 Where this repo sits: **levels 0 and 1 in full**, plus a **simplified level 5** — it does
 LLM-extract a real entity/relationship graph and link chunks via `[:MENTIONS]`, but without
@@ -58,9 +58,12 @@ Extraction is best-effort: if it fails the system degrades gracefully to plain v
    `db.index.fulltext.queryNodes`, normalise each branch's scores by its own max, and merge.
    The question is sanitised of Lucene reserved characters first; if it has no usable
    keywords, retrieval falls back to vector-only.
-3. **Graph expansion**: collect the entities those chunks mention, then fetch their
-   one-hop `[:RELATED_TO]` relationships as "graph facts".
-4. **Assemble** a context of passages + facts and ask the LLM to answer using _only_ that
+3. **Entity entry points** ("local search"): match the query vector against the
+   `entity_embeddings` index to find the most relevant entities directly — not only the
+   ones the retrieved chunks happen to mention.
+4. **Graph expansion**: union the chunk-mentioned entities with those entry-point entities,
+   then fetch their one-hop `[:RELATED_TO]` relationships as "graph facts".
+5. **Assemble** a context of passages + facts and ask the LLM to answer using _only_ that
    context (grounding prompt). If nothing is retrieved, return a safe "I don't know".
 
 <p align="center"><img src="img/flow-query.png" alt="Question-answering sequence" width="880"></p>
@@ -74,7 +77,7 @@ A single Neo4j database is **both** the vector store and the knowledge graph:
 
 ```cypher
 (:Document {id, title})-[:HAS_CHUNK]->(:Chunk {id, index, text, embedding})
-(:Chunk)-[:MENTIONS]->(:Entity {name, type, description})
+(:Chunk)-[:MENTIONS]->(:Entity {name, type, description, embedding})
 (:Entity)-[:RELATED_TO {type, description}]->(:Entity)
 ```
 
@@ -82,6 +85,8 @@ Indexes and constraints are created idempotently on boot by `ensure_schema`:
 
 - **Vector index** `chunk_embeddings` on `Chunk.embedding` (cosine, 768-dim) — semantic search.
 - **Full-text index** `chunk_fulltext` on `Chunk.text` — the keyword half of hybrid search.
+- **Vector index** `entity_embeddings` on `Entity.embedding` (cosine, 768-dim) — entity-anchored
+  ("local search") entry points.
 - **Uniqueness constraints** on `Document.id`, `Chunk.id`, `Entity.name` (the last lets
   `MERGE (:Entity {name})` deduplicate entities across documents).
 
