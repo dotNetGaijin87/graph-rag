@@ -142,6 +142,7 @@ chunking/retrieval ones are then editable at runtime from the **Settings** tab.
 | `EMBEDDING_DIM`                | `768`              | Must match the embedding model        |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100`      | Chunking window (characters)          |
 | `TOP_K`                        | `5`                | Chunks retrieved per question         |
+| `ENABLE_RERANKING`             | `true`             | Off = skip LLM rerank, faster queries |
 | `ENABLE_ENTITY_EXTRACTION`     | `true`             | Off = plain vector RAG, faster ingest |
 
 > Changing `EMBEDDING_MODEL` changes the vector dimension — update `EMBEDDING_DIM` to match
