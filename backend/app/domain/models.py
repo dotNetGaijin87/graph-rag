@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -12,7 +11,7 @@ class Chunk:
     document_id: str
     index: int
     text: str
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
 
 
 @dataclass(frozen=True)
