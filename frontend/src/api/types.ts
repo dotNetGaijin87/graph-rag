@@ -64,6 +64,7 @@ export interface Settings {
   chunk_overlap: number;
   top_k: number;
   enable_entity_extraction: boolean;
+  enable_reranking: boolean;
   max_extraction_chars: number;
   // read-only (informational)
   llm_model: string;
