@@ -88,12 +88,13 @@ class RuntimeSettings:
         if "enable_reranking" in data:
             pending["enable_reranking"] = _as_bool(data["enable_reranking"], "enable_reranking")
 
-        chunk_size = pending.get("chunk_size", self.chunk_size)
-        chunk_overlap = pending.get("chunk_overlap", self.chunk_overlap)
-        if chunk_overlap >= chunk_size:
-            raise ValueError("chunk_overlap must be smaller than chunk_size.")
-
+        # Check and apply under one lock so concurrent updates can't jointly break the
+        # overlap < size invariant.
         with self._lock:
+            chunk_size = pending.get("chunk_size", self.chunk_size)
+            chunk_overlap = pending.get("chunk_overlap", self.chunk_overlap)
+            if chunk_overlap >= chunk_size:
+                raise ValueError("chunk_overlap must be smaller than chunk_size.")
             for key, value in pending.items():
                 setattr(self, key, value)
-        return self.to_dict()
+            return self.to_dict()
