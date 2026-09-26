@@ -42,6 +42,8 @@ def ingest_document():
 
     if not isinstance(text, str) or not text.strip():
         return jsonify({"error": "Field 'text' is required and must be non-empty."}), 400
+    if title is not None and not isinstance(title, str):
+        return jsonify({"error": "Field 'title' must be a string."}), 400
 
     report = _container().ingest_text.execute(text=text, title=title)
     return jsonify(serialize_report(report)), 201

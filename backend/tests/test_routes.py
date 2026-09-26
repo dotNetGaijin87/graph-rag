@@ -50,6 +50,14 @@ def test_ingest_document_rejects_non_string_text(client):
     assert response.status_code == 400
 
 
+def test_ingest_document_rejects_non_string_title(client, graph):
+    response = client.post("/api/documents", json={"text": "Curie discovered radium.", "title": 42})
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+    assert graph.saved_documents == []
+
+
 def test_query_returns_answer(client):
     response = client.post("/api/query", json={"question": "What did Curie discover?"})
 
