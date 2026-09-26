@@ -110,6 +110,7 @@ class AnswerQuestionUseCase:
         order = _parse_rank_order(ranking, len(candidates))
         if not order:
             return candidates[:k]
+        ranked_set = set(order)
         ranked = [candidates[i] for i in order]
-        ranked += [c for j, c in enumerate(candidates) if j not in set(order)]
+        ranked += [c for j, c in enumerate(candidates) if j not in ranked_set]
         return ranked[:k]
